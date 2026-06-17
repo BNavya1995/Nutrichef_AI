@@ -1,0 +1,13 @@
+{
+    "liked_meals": [],
+    "disliked_meals": [
+        "rice and egg bowl"
+    ],
+    "feedback_history": [
+        {
+            "meal_name": "rice and egg bowl",
+            "rating": 2,
+            "comment": "user rated via dashboard interface."
+        }
+    ]
+}
