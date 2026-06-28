@@ -141,10 +141,17 @@ with tab3:
         
         # 🌟 FIX 3: Premium Dynamic Target Summary Banner Card
         target_cal_display = metadata.get('target_calories', 'Calculated Baseline')
+        goal_display = metadata.get('health_goal', '')
+        weight_display = metadata.get('weight', '')
+        height_display = metadata.get('height', '')
+
         st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">🎯 Caloric Budget Profile Blueprint</div>
+                <div class="metric-title">🎯 Daily Caloric Target</div>
                 <div class="metric-value">{target_cal_display}</div>
+                <div style="margin-top: 0.8rem; font-size: 0.9rem; opacity: 0.85;">
+                    ⚖️ {weight_display} kg &nbsp;|&nbsp; 📏 {height_display} cm &nbsp;|&nbsp; 🎯 {goal_display}
+                </div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -187,21 +194,42 @@ with tab3:
                 
                 txt_col, score_col = st.columns([5, 1])
                 with txt_col:
-                    pantry_tokens = set([i.strip().lower() for i in user_ingredients_string.replace(",", " ").split()])
+                    # Build pantry set — lowercase single words AND full phrases
+                    pantry_tokens = set([i.strip().lower() for i in selected_tags])
+                    pantry_words = set([w for token in pantry_tokens for w in token.split()])
+
                     raw_ingredients = meal_data.get('ingredients', '')
-                    recipe_tokens = [str(item).lower() for item in raw_ingredients] if isinstance(raw_ingredients, list) else str(raw_ingredients).lower().split()
+
+                    # Parse ingredients — handle both list and comma/newline string formats
+                    if isinstance(raw_ingredients, list):
+                        ingredient_lines = [str(i).lower().strip() for i in raw_ingredients]
+                    else:
+                        # Split by comma or newline
+                        ingredient_lines = [i.lower().strip() for i in str(raw_ingredients).replace('\n', ',').split(',') if i.strip()]
 
                     owned_items = []
                     missing_items = []
 
-                    for item in recipe_tokens:
-                        if item in pantry_tokens:
-                            owned_items.append(f"`{item.title()}`")  # Auto-capitalize list items cleanly
-                        elif item in PANTRY_STAPLES:
-                            owned_items.append(f"`{item.title()} (staple)`")
+                    import re
+                    for line in ingredient_lines:
+                        if not line:
+                            continue
+                        # Strip leading quantities like "2", "1/2", "1 cup", "1 tsp" etc.
+                        clean_line = re.sub(r'^[\d\/\.\s]*(cup|tsp|tbsp|g|kg|ml|oz|lb|handful|pinch|bunch)?\s*', '', line).strip()
+                        # Also strip trailing notes like ", chopped", ", minced"
+                        clean_line = re.sub(r',.*$', '', clean_line).strip()
+
+                        # Check if any pantry item appears in this ingredient line
+                        matched = any(p in clean_line for p in pantry_tokens) or \
+                                  any(w in pantry_words for w in clean_line.split())
+
+                        if matched:
+                            owned_items.append(f"`{clean_line.title()}`")
+                        elif any(s in clean_line for s in PANTRY_STAPLES):
+                            owned_items.append(f"`{clean_line.title()} (staple)`")
                         else:
-                            missing_items.append(f"`{item.title()}`")
-                            master_missing_accumulator.append(item)
+                            missing_items.append(f"`{clean_line.title()}`")
+                            master_missing_accumulator.append(clean_line)
 
                     st.write(f"🍏 **Available in Your Fridge:** {', '.join(owned_items) if owned_items else 'None'}")
                     if missing_items:
@@ -212,21 +240,21 @@ with tab3:
                     st.metric("Inventory Match", f"{match_score}%")
                     
                 with st.expander("📖 View Cooking Instructions & Preparation"):
-                    # 🌟 FIX 2: Parse Raw Arrays/Strings and Format into Clean Numbered Markdown Steps
                     raw_prep = meal_data.get('preparation', '')
                     
                     if isinstance(raw_prep, list):
-                        steps_list = raw_prep
-                    elif isinstance(raw_prep, str):
-                        # Clean bracket artifacts if model returned string-serialized arrays
+                        steps_list = [s for s in raw_prep if str(s).strip()]
+                    elif isinstance(raw_prep, str) and raw_prep.strip():
                         clean_prep = raw_prep.strip("[]'\"")
-                        steps_list = [step.strip("'\" ") for step in clean_prep.split("', '") if step]
+                        steps_list = [step.strip("'\" ") for step in clean_prep.split("', '") if step.strip()]
                     else:
-                        steps_list = ["Prepare core elements and mix thoroughly."]
-                        
-                    # Render step text elements beautifully using native markdown list tokens
-                    for idx, step in enumerate(steps_list, start=1):
-                        st.markdown(f"**{idx}.** {step}")
+                        steps_list = []
+
+                    if not steps_list:
+                        st.info("⚠️ Preparation steps unavailable for this meal. Click 🔄 Swap to generate a different option.")
+                    else:
+                        for idx, step in enumerate(steps_list, start=1):
+                            st.markdown(f"**{idx}.** {step}")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
         

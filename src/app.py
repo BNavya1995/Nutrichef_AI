@@ -133,7 +133,11 @@ def recommend_via_local_llama(payload: FullDayPlanRequest):
             "success": True,
             "user_metadata": {
                 "user_name": payload.user_name,
-                "target_calories": f"{bmr} kcal/day target ()"
+                "age": payload.age,
+                "weight": payload.weight,
+                "height": payload.height,
+                "health_goal": payload.health_goal,
+                "target_calories": f"{bmr} kcal/day"
             },
             "full_day_plan": structured_plan
         }

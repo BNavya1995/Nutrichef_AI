@@ -1,0 +1,13 @@
+{
+    "liked_meals": [
+        "eggs"
+    ],
+    "disliked_meals": [],
+    "feedback_history": [
+        {
+            "meal_name": "eggs",
+            "rating": 4,
+            "comment": "ready to eat"
+        }
+    ]
+}
