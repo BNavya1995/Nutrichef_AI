@@ -3,18 +3,19 @@ from pydantic import BaseModel
 from typing import Optional
 import json
 import ollama
-# ⚡ NEW: Import your storage preference mechanics safely
-from src.preferences import load_preference_instructions, save_meal_feedback, initialize_preferences
+from preferences import load_preference_instructions, save_meal_feedback, initialize_preferences
+from recommender import MLRecipeRecommender
 
 app = FastAPI(title="NutriChef AI - Local Llama 3 Core Engine")
 
-# Run file initialization check right upon startup routine execution
 initialize_preferences()
+ml_recommender = MLRecipeRecommender()
 
 class FullDayPlanRequest(BaseModel):
     user_name: str
     age: int
     weight: float
+    height: float = 165.0  # cm, default 165 if not provided
     ingredients: str
     dietary_restriction: Optional[str] = None
     target_slot: Optional[str] = "all"
@@ -39,7 +40,24 @@ def recommend_via_local_llama(payload: FullDayPlanRequest):
     try:
         print(f"🤖 Booting local Llama 3 generation loop for: {payload.user_name}")
         
-        bmr = int(10 * payload.weight + 6.25 * 165 - 5 * payload.age + (-161))
+        # Mifflin-St Jeor BMR (female formula; height now from user input)
+        bmr = int(10 * payload.weight + 6.25 * payload.height - 5 * payload.age - 161)
+        
+        # ML Layer: get top ingredient-matched recipes to seed the LLM with better context
+        ml_suggestions = []
+        try:
+            ml_suggestions = ml_recommender.predict_recipes(
+                payload.ingredients,
+                dietary_restriction=payload.dietary_restriction,
+                top_n=5
+            )
+        except Exception:
+            pass  # ML layer is optional; LLM fallback handles it
+        
+        ml_context = ""
+        if ml_suggestions:
+            names = [r['name'] for r in ml_suggestions]
+            ml_context = f"ML-matched recipes from pantry scan (use these as inspiration): {', '.join(names)}."
         
         # ⚡ NEW: Load learning preference constraints dynamically from JSON history file
         learned_history_rules = load_preference_instructions()
@@ -65,6 +83,9 @@ def recommend_via_local_llama(payload: FullDayPlanRequest):
         Adaptive Learning Feedback Loop Rules:
         - {learned_history_rules if learned_history_rules else "No historical feedback logged yet. Generate native balanced combinations."}
         
+        ML Pantry Match Suggestions:
+        - {ml_context if ml_context else "No ML pre-filter available. Use pantry ingredients directly."}
+        
         Task:
         Generate exactly 3 unique, completely non-repeating meals for the day (morning breakfast, afternoon lunch, evening snack/dinner) optimized for the user's explicit historical preference trends using the available pantry ingredients.
         
@@ -86,7 +107,27 @@ def recommend_via_local_llama(payload: FullDayPlanRequest):
         )
         
         response_text = response['message']['content'].strip()
-        structured_plan = json.loads(response_text)
+        
+        # Strip markdown code fences if LLM wraps output in ```json ... ```
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1]
+            if response_text.startswith("json"):
+                response_text = response_text[4:]
+            response_text = response_text.strip()
+        
+        # Extract first JSON object if there's any preamble text
+        brace_start = response_text.find('{')
+        brace_end = response_text.rfind('}')
+        if brace_start != -1 and brace_end != -1:
+            response_text = response_text[brace_start:brace_end + 1]
+        
+        try:
+            structured_plan = json.loads(response_text)
+        except json.JSONDecodeError as parse_err:
+            raise HTTPException(
+                status_code=500,
+                detail=f"LLM returned malformed JSON: {str(parse_err)}. Raw output: {response_text[:300]}"
+            )
         
         return {
             "success": True,

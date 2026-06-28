@@ -1,7 +1,22 @@
-pandas
-numpy
-scikit-learn
-fastapi
-uvicorn
-streamlit
-requests
+# Core Backend
+fastapi==0.138.1
+uvicorn==0.34.3
+pydantic>=2.0.0
+
+# AI / LLM
+ollama==0.6.2
+
+# Frontend
+streamlit==1.45.1
+
+# Data & ML
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+
+# Scheduler & Email
+schedule==1.2.2
+
+# Utilities
+requests==2.32.3
+python-dotenv==1.0.1

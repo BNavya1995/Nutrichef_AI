@@ -26,7 +26,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # High-Speed Caching Function Optimization for Full Generation
-@st.cache_data(show_spinner=False)
 def fetch_recipe_plan(payload_dict):
     response = requests.post("http://127.0.0.1:8000/recommend", json=payload_dict)
     return response.json()
@@ -68,11 +67,13 @@ with tab1:
     st.subheader("Step 1: Tell us about your health baseline")
     name_input = st.text_input("User Name:", value="", placeholder="Type your name here...")
     
-    c_age, c_wt = st.columns(2)
+    c_age, c_wt, c_ht = st.columns(3)
     with c_age: 
         age_input = st.number_input("Age (Years):", min_value=1, max_value=120, value=None, placeholder="e.g. 31")
     with c_wt: 
         weight_input = st.number_input("Weight (Kg):", min_value=10.0, max_value=250.0, value=None, placeholder="e.g. 63.0")
+    with c_ht:
+        height_input = st.number_input("Height (cm):", min_value=100.0, max_value=250.0, value=None, placeholder="e.g. 165.0")
         
     goal_option = st.selectbox("Primary Health & Nutrition Goal:", ["Maintenance", "Weight Loss", "Muscle Gain", "Diabetic-Friendly"], key="health_goal_unique")
 
@@ -103,16 +104,17 @@ with tab2:
     generate_btn = st.button("🔮 Generate Full-Day Menu Plan", use_container_width=True)
 
     if generate_btn:
-        if not name_input or age_input is None or weight_input is None:
-            st.error("⚠️ Form Incomplete! Please enter your Name, Age, and Weight in Step 1 first.")
+        if not name_input or age_input is None or weight_input is None or height_input is None:
+            st.error("⚠️ Form Incomplete! Please enter your Name, Age, Weight, and Height in Step 1 first.")
         elif not selected_tags:
             st.error("⚠️ Pantry Empty! Please select at least one available ingredient in Step 2 first.")
         else:
             with st.spinner("🍳 Our AI Chef is crafting your custom meal plan and calculating your nutrition numbers..."):
                 payload = {
-                    "user_name": str(name_input).strip().title(),  # Auto-capitalize names cleanly
+                    "user_name": str(name_input).strip().title(),
                     "age": int(age_input),
                     "weight": float(weight_input),
+                    "height": float(height_input),
                     "ingredients": str(user_ingredients_string),
                     "dietary_restriction": None if diet_option == "None" else str(diet_option),
                     "health_goal": str(goal_option),

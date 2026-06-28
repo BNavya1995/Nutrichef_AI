@@ -53,23 +53,36 @@ class MLRecipeRecommender:
         top_predictions = self.df.copy()
         top_predictions['ml_confidence_score'] = scores
         
-        # Apply strict dietary filter logic layers
+        # Apply dietary filter using the category column (set during dataset generation)
         if dietary_restriction and dietary_restriction != "None":
-            if dietary_restriction == "Vegan":
-                vegan_dishes = ["South Indian Dosa", "Tomato Basil Pasta", "Veggie Stir Fry", "Chana Masala", "French Fries", "Dal Tadka", "High-Fiber Chana Masala", "Quinoa Vegetable Pulav", "Grilled Tofu Salad", "Spiced Lentil Soup", "Avocado Whole Wheat Toast", "Stir-Fried Broccoli and Mushroom", "Masala Oats Upma", "Mixed Bean Salad", "Jeera Aloo Spinach Sauté", "Lemon Coriander Clear Soup", "Sprouted Moong Chaat", "Baked Sweet Potato Fries", "Garlic Sautéed Mushrooms", "Vegetable Barley Soup", "Roasted Chickpeas Snack", "Mint Coriander Chutney", "Stuffed Bell Peppers", "Mixed Vegetable Soup", "Beshari Roti Whole Wheat", "Sautéed Green Beans", "Whole Wheat Pasta Primavera", "Healthy Fruit Salad", "Cabbage Carrot Poriyal", "Sautéed Broccoli Ginger", "Baked Tofu Bites", "Mushroom Clear Soup", "Healthy Vegetable Oats Khichdi"]
-                top_predictions = top_predictions[top_predictions['name'].isin(vegan_dishes)]
+            category_map = {
+                "Vegan": "Vegan",
+                "Vegetarian": "Vegetarian",
+                "Eggitarian": "Eggitarian",
+                "Non-Vegetarian": "Non-Vegetarian",
+                # Gluten-Free cuts across categories — fallback to name-based list
+                "Gluten-Free": None
+            }
+            mapped = category_map.get(dietary_restriction)
+            if mapped:
+                if 'dietary_category' in top_predictions.columns:
+                    top_predictions = top_predictions[top_predictions['dietary_category'] == mapped]
+                # Fallback: if dietary_category column missing, skip filter silently
             elif dietary_restriction == "Gluten-Free":
-                gf_dishes = ["South Indian Dosa", "Veggie Stir Fry", "Panner Tikka", "Chicken Fried Rice", "Chana Masala", "French Fries", "Dal Tadka", "Healthy Protein Paneer Tikka", "Nutrient-Dense Oats Porridge", "Baked Salmon with Asparagus", "Moong Dal Khichdi", "Garlic Herb Roasted Chicken", "Chia Seed Vanilla Pudding", "Palak Paneer Light", "Egg White Vegetable Omelet", "Greek Yogurt Fruit Parfait", "Almond Butter Banana Smoothie", "Boiled Egg Salad", "Clear Chicken Broth", "Cucumber Tomato Raita", "Grilled Chicken Salad", "Simple Dal Tadka", "Low-Fat Carrot Halwa", "Spiced Roasted Makhana", "Healthy Egg Bhurji", "Ragi Porridge Malt", "Baked Fish Fillet"]
-                top_predictions = top_predictions[top_predictions['name'].isin(gf_dishes)]
-            elif dietary_restriction == "Vegetarian":
-                veg_dishes = ["South Indian Dosa", "Veggie Stir Fry", "Chana Masala", "French Fries", "Dal Tadka", "High-Fiber Chana Masala", "Quinoa Vegetable Pulav", "Grilled Tofu Salad", "Spiced Lentil Soup", "Avocado Whole Wheat Toast", "Stir-Fried Broccoli and Mushroom", "Masala Oats Upma", "Mixed Bean Salad", "Jeera Aloo Spinach Sauté", "Lemon Coriander Clear Soup", "Sprouted Moong Chaat", "Baked Sweet Potato Fries", "Garlic Sautéed Mushrooms", "Vegetable Barley Soup", "Roasted Chickpeas Snack", "Mint Coriander Chutney", "Stuffed Bell Peppers", "Mixed Vegetable Soup", "Beshari Roti Whole Wheat", "Sautéed Green Beans", "Whole Wheat Pasta Primavera", "Healthy Fruit Salad", "Cabbage Carrot Poriyal", "Sautéed Broccoli Ginger", "Baked Tofu Bites", "Mushroom Clear Soup", "Healthy Vegetable Oats Khichdi"]
-                top_predictions = top_predictions[top_predictions['name'].isin(veg_dishes)]
-            elif dietary_restriction == "Non-Vegetarian":
-                nonveg_dishes = ["Hyderabadi Chicken Biryani", "Classic Butter Chicken", "Baked Salmon Asparagus", "Garlic Herb Chicken Breast", "Clear Chicken Broth", "Grilled Chicken Avocado Salad", "Baked Fish Fillet"]
-                top_predictions = top_predictions[top_predictions['name'].isin(nonveg_dishes)]
-            elif dietary_restriction == "Eggitarian":
-                egg_dishes = ["Scrambled Eggs", "Omelet", "Egg Salad", "Egg Drop Soup", "Egg Fried Rice", "Egg Bhurji", "Egg Curry", "Egg Stir Fry", "Egg Scramble", "Egg Wrap"]
-                top_predictions = top_predictions[top_predictions['name'].isin(egg_dishes)]
+                gf_dishes = [
+                    "South Indian Dosa", "Veggie Stir Fry", "Panner Tikka", "Chicken Fried Rice",
+                    "Chana Masala", "French Fries", "Dal Tadka", "Healthy Protein Paneer Tikka",
+                    "Nutrient-Dense Oats Porridge", "Baked Salmon with Asparagus", "Moong Dal Khichdi",
+                    "Garlic Herb Roasted Chicken", "Chia Seed Vanilla Pudding", "Palak Paneer Light",
+                    "Egg White Vegetable Omelet", "Greek Yogurt Fruit Parfait", "Almond Butter Banana Smoothie",
+                    "Boiled Egg Salad", "Clear Chicken Broth", "Cucumber Tomato Raita", "Grilled Chicken Salad",
+                    "Simple Dal Tadka", "Low-Fat Carrot Halwa", "Spiced Roasted Makhana",
+                    "Healthy Egg Bhurji", "Ragi Porridge Malt", "Baked Fish Fillet"
+                ]
+                # Match base name (strip variation suffix like " (Style v1)")
+                top_predictions = top_predictions[
+                    top_predictions['name'].str.replace(r' \(Style v\d+\)', '', regex=True).isin(gf_dishes)
+                ]
                 
 
         # Sort based on maximum true availability percentage

@@ -2,14 +2,21 @@ import time
 import schedule
 import requests
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
 
-# 📧 CONFIGURATION BASES
-SENDER_EMAIL = "your_email@gmail.com"
-RECEIVER_EMAIL = "boss1966y@gmail.com"
-APP_PASSWORD = "acuw rnyh aibr hvzf"  # Paste your Google App Password here
+load_dotenv()
+
+# 📧 CONFIGURATION — loaded from .env file
+SENDER_EMAIL = os.getenv("SENDER_EMAIL")
+RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
+APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 API_ENDPOINT = "http://127.0.0.1:8000/recommend"
+
+if not all([SENDER_EMAIL, RECEIVER_EMAIL, APP_PASSWORD]):
+    raise EnvironmentError("Missing email credentials. Check your .env file.")
 
 # Profile parameters matching your Step 1 and Step 2 canvas rules
 USER_PAYLOAD = {
